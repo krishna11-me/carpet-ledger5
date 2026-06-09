@@ -8,7 +8,7 @@
 
 Lightweight Android application to manage carpet inventory, custom sizes/types/categories and transactions (sales), with local persistence and PDF-export capability.
 
-**Highlights**
+**Highlight**
 - Small MVVM Android app using Room for local storage.
 - Compose-based UI entrypoint in [app/src/main/java/com/example/ui/CarpetHomeScreen.kt](app/src/main/java/com/example/ui/CarpetHomeScreen.kt#L1).
 - Export transactions/invoices to PDF with [app/src/main/java/com/example/util/PdfExporter.kt](app/src/main/java/com/example/util/PdfExporter.kt#L1).
