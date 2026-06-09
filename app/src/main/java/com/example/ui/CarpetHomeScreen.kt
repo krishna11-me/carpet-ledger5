@@ -63,15 +63,14 @@ fun CarpetHomeScreen(viewModel: CarpetViewModel) {
     Scaffold(
         topBar = {
             Surface(
-                tonalElevation = 8.dp,
-                shadowElevation = 8.dp,
-                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 12.dp,
+                shadowElevation = 4.dp
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -81,56 +80,70 @@ fun CarpetHomeScreen(viewModel: CarpetViewModel) {
                         Column {
                             Text(
                                 text = "MANNONWOVEN",
-                                style = MaterialTheme.typography.headlineSmall.copy(
+                                style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 1.2.sp
+                                    letterSpacing = 1.5.sp
                                 ),
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Stock Ledger & Godown Manager",
+                                text = "GODOWN STOCK LEDGER",
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.Medium,
-                                    letterSpacing = 0.5.sp
+                                    letterSpacing = 1.sp
                                 ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.secondary
                             )
                         }
                         
                         // Options & Version Row
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 color = MaterialTheme.colorScheme.tertiaryContainer,
                                 modifier = Modifier
+                                    .padding(4.dp)
                                     .clickable { showBackupDialog = true }
                                     .testTag("backup_settings_chip")
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Share, 
                                         contentDescription = "Backup/Restore",
                                         tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(14.dp)
                                     )
                                     Text(
-                                        text = "Sync",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        text = "Backup",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onTertiaryContainer
                                     )
                                 }
                             }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.padding(4.dp)
+                            ) {
+                                Text(
+                                    text = "V1.1",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // Dashboard Modes Selector / Navigation Tiles
                     Row(
@@ -1785,6 +1798,7 @@ fun IncrementChip(
 
 
 // ------------------ SECTION 3: TRANSACTION LEDGER LOG ------------------
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TxLedgerScreen(
     allTransactions: List<TransactionEntity>,
@@ -1793,6 +1807,12 @@ fun TxLedgerScreen(
 ) {
     val categoryToTypesMap by viewModel.categoryToTypesMap.collectAsState()
     val allCategories by viewModel.allCategories.collectAsState()
+    val carpetSizes by viewModel.carpetSizes.collectAsState()
+    val durriSizes by viewModel.durriSizes.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    var editTransactionTarget by remember { mutableStateOf<TransactionEntity?>(null) }
+    var historyTransactionTarget by remember { mutableStateOf<TransactionEntity?>(null) }
 
     val filteredTransactions = remember(
         allTransactions, 
@@ -1922,39 +1942,19 @@ fun TxLedgerScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "Ledger Records (${filteredTransactions.size})",
+                text = "Ledger Audit Records (${filteredTransactions.size})",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
-            Row {
-                val context = LocalContext.current
-                val exportPdfLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.CreateDocument("application/pdf")
-                ) { uri ->
-                    if (uri != null) {
-                        viewModel.exportLedgerToPdf(uri, context, filteredTransactions)
-                    }
-                }
+            if (filteredTransactions.size != allTransactions.size) {
                 TextButton(
                     onClick = {
-                        val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault())
-                        exportPdfLauncher.launch("ledger_export_${sdf.format(Date())}.pdf")
+                        viewModel.ledgerSearchQuery = ""
+                        viewModel.ledgerFilterDirection = "ALL"
+                        viewModel.ledgerTypeFilter = "ALL"
                     }
                 ) {
-                    Text("Export PDF", fontSize = 12.sp)
+                    Text("Clear Filter", fontSize = 12.sp)
                 }
-                
-                if (filteredTransactions.size != allTransactions.size) {
-                    TextButton(
-                        onClick = {
-                            viewModel.ledgerSearchQuery = ""
-                            viewModel.ledgerFilterDirection = "ALL"
-                            viewModel.ledgerTypeFilter = "ALL"
-                        }
-                    ) {
-                        Text("Clear Filter", fontSize = 12.sp)
-                    }
-                }
-            }
             }
         }
 
@@ -1994,9 +1994,456 @@ fun TxLedgerScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(filteredTransactions, key = { it.id }) { tx ->
-                    LedgerTxRowCard(tx = tx, onDelete = { onDeleteClick(tx) })
+                    LedgerTxRowCard(
+                        tx = tx,
+                        onDelete = { onDeleteClick(tx) },
+                        onEdit = { editTransactionTarget = tx },
+                        onShowHistory = { historyTransactionTarget = tx }
+                    )
                 }
             }
+        }
+
+        // --- EDIT TRANSACTION DIALOG ---
+        editTransactionTarget?.let { tx ->
+            var editDate by remember(tx) { mutableStateOf(tx.transactionDate) }
+            val durriTypes = categoryToTypesMap["DURRI"] ?: emptyList()
+            var editSelectedCategory by remember(tx) {
+                mutableStateOf(
+                    allCategories.firstOrNull { categoryToTypesMap[it]?.contains(tx.carpetType) == true } ?: "ALL"
+                )
+            }
+            var editSelectedType by remember(tx) { mutableStateOf(tx.carpetType) }
+            var editSelectedSize by remember(tx) { mutableStateOf(tx.size) }
+            var editDirection by remember(tx) { mutableStateOf(tx.direction) }
+            var editQuantityText by remember(tx) { mutableStateOf(tx.quantity.toString()) }
+            var editRollLengthsText by remember(tx) { mutableStateOf(tx.rollLengths) }
+            var editChallanNumber by remember(tx) { mutableStateOf(tx.challanNumber) }
+            var editRemarks by remember(tx) { mutableStateOf(tx.remarks) }
+
+            AlertDialog(
+                onDismissRequest = { editTransactionTarget = null },
+                title = {
+                    Text(
+                        text = "Edit Log Entry",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // 1. Log Direction (Flow IN/OUT) toggle
+                        Text(
+                            text = "Flow Direction",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            listOf("INCOMING", "OUTGOING").forEach { dir ->
+                                FilterChip(
+                                    selected = editDirection == dir,
+                                    onClick = { editDirection = dir },
+                                    label = {
+                                        Text(if (dir == "INCOMING") "IN 📥 (Receipt)" else "OUT 📤 (Dispatch)")
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = if (dir == "INCOMING") Color(0xFFE8F5E9) else Color(0xFFFFE0B2),
+                                        selectedLabelColor = if (dir == "INCOMING") Color(0xFF2E7D32) else Color(0xFFD84315)
+                                    )
+                                )
+                            }
+                        }
+
+                        // 2. Choice of Style Category & Carpet Type
+                        Text(
+                            text = "Carpet Style / Type",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val editCats = listOf("ALL") + allCategories
+                            editCats.forEach { cat ->
+                                val isSelected = editSelectedCategory == cat
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        editSelectedCategory = cat
+                                        // Auto set first product of that category
+                                        val firstVal = if (cat == "ALL") {
+                                            categoryToTypesMap.values.flatten().firstOrNull() ?: ""
+                                        } else {
+                                            categoryToTypesMap[cat]?.firstOrNull() ?: ""
+                                        }
+                                        if (firstVal.isNotEmpty()) {
+                                            editSelectedType = firstVal
+                                        }
+                                    },
+                                    label = { Text(cat, fontSize = 11.sp) }
+                                )
+                            }
+                        }
+
+                        // Style Chips filtered by Category
+                        val availableStyles = if (editSelectedCategory == "ALL") {
+                            categoryToTypesMap.values.flatten().distinct()
+                        } else {
+                            categoryToTypesMap[editSelectedCategory] ?: emptyList()
+                        }
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            availableStyles.forEach { p ->
+                                val isSelected = editSelectedType == p
+                                Surface(
+                                    onClick = { 
+                                        editSelectedType = p 
+                                        val isSelectedTypeDurri = p == "DURRI" || durriTypes.contains(p)
+                                        val sizesToRender = if (isSelectedTypeDurri) durriSizes else carpetSizes
+                                        if (editSelectedSize !in sizesToRender) {
+                                            editSelectedSize = sizesToRender.firstOrNull() ?: ""
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                                    modifier = Modifier.testTag("edit_carpet_chip_${p.replace(" ", "_")}")
+                                ) {
+                                    Text(
+                                        text = p,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+
+                        // 3. Selection of Size
+                        val isSelectedTypeDurri = editSelectedType == "DURRI" || durriTypes.contains(editSelectedType)
+                        Text(
+                            text = if (isSelectedTypeDurri) "Select Durri Dimension" else "Select Carpet Width Roll Size",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        val sizesToRender = if (isSelectedTypeDurri) durriSizes else carpetSizes
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            sizesToRender.forEach { s ->
+                                val isSelected = editSelectedSize == s
+                                Surface(
+                                    onClick = { editSelectedSize = s },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                                    border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Text(
+                                        text = if (isSelectedTypeDurri) s else "${s}m",
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+
+                        // 4. Quantity Field with incremental buttons
+                        Text(
+                            text = "Quantity (Rolls / Pieces)",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = editQuantityText,
+                                onValueChange = { input ->
+                                    if (input.isEmpty() || input.all { it.isDigit() }) {
+                                        editQuantityText = input
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f).testTag("edit_quantity_input"),
+                                shape = RoundedCornerShape(8.dp),
+                                placeholder = { Text("0") }
+                            )
+
+                            IconButton(
+                                onClick = { editQuantityText = "" },
+                                modifier = Modifier
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                    .size(48.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Clear quantity", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+
+                        // Quantity micro controls
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val addQtyFn = { amt: Int ->
+                                val current = editQuantityText.toIntOrNull() ?: 0
+                                val next = (current + amt).coerceAtLeast(0)
+                                editQuantityText = next.toString()
+                            }
+                            listOf(-10, -5, -1, 1, 5, 10).forEach { amt ->
+                                Surface(
+                                    onClick = { addQtyFn(amt) },
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (amt > 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                                    border = BorderStroke(0.5.dp, if (amt > 0) Color(0xFF81C784) else Color(0xFFFF8A80)),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = if (amt > 0) "+$amt" else "$amt",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                        color = if (amt > 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                    )
+                                }
+                            }
+                        }
+
+                        // 5. Roll Lengths
+                        Text(
+                            text = "Roll Lengths (Optional)",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        OutlinedTextField(
+                            value = editRollLengthsText,
+                            onValueChange = { editRollLengthsText = it },
+                            placeholder = { Text("e.g. 6, 6, 9 or comma-separated") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        // 6. Challan No & Date Selection
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = editChallanNumber,
+                                onValueChange = { editChallanNumber = it },
+                                label = { Text("Challan No", fontSize = 11.sp) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+
+                            // Datepicker launcher
+                            val dateCalendar = Calendar.getInstance()
+                            val picker = DatePickerDialog(
+                                context,
+                                { _, year, month, day ->
+                                    val c = Calendar.getInstance().apply {
+                                        set(year, month, day)
+                                    }
+                                    editDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(c.time)
+                                },
+                                dateCalendar.get(Calendar.YEAR),
+                                dateCalendar.get(Calendar.MONTH),
+                                dateCalendar.get(Calendar.DAY_OF_MONTH)
+                            )
+                            OutlinedTextField(
+                                value = editDate,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Log Entry Date", fontSize = 11.sp) },
+                                trailingIcon = {
+                                    IconButton(onClick = { picker.show() }) {
+                                        Icon(Icons.Default.DateRange, contentDescription = "Pick Date")
+                                    }
+                                },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .weight(1.2f)
+                                    .clickable { picker.show() },
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+
+                        // 7. Remarks
+                        Text(
+                            text = "Customer/Supplier Details",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        OutlinedTextField(
+                            value = editRemarks,
+                            onValueChange = { editRemarks = it },
+                            placeholder = { Text("e.g. Ramesh Kumar, Sohan Lal") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        modifier = Modifier.testTag("save_edit_tx_btn"),
+                        onClick = {
+                            val parsedQty = editQuantityText.toIntOrNull() ?: 0
+                            if (parsedQty <= 0) {
+                                viewModel.showMessage("Please enter a valid quantity greater than 0", true)
+                                return@Button
+                            }
+                            val updatedTx = tx.copy(
+                                transactionDate = editDate,
+                                carpetType = editSelectedType,
+                                size = editSelectedSize,
+                                direction = editDirection,
+                                quantity = parsedQty,
+                                challanNumber = editChallanNumber.trim(),
+                                remarks = editRemarks.trim(),
+                                rollLengths = editRollLengthsText.trim()
+                            )
+                            viewModel.updateTransaction(
+                                updatedTx = updatedTx,
+                                originalTx = tx,
+                                onSuccess = {
+                                    editTransactionTarget = null
+                                }
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Save Changes")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { editTransactionTarget = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // --- HISTORY TOOLTIP/DIALOG ---
+        historyTransactionTarget?.let { tx ->
+            val logs = remember(tx.editHistoryJson) {
+                try {
+                    val arr = org.json.JSONArray(tx.editHistoryJson.ifEmpty { "[]" })
+                    val list = mutableListOf<String>()
+                    for (i in 0 until arr.length()) {
+                        list.add(arr.getString(i))
+                    }
+                    list
+                } catch (e: Exception) {
+                    emptyList<String>()
+                }
+            }
+
+            AlertDialog(
+                onDismissRequest = { historyTransactionTarget = null },
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Ledger Correction Log History",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                        )
+                    }
+                },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 280.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Below is the audit ledger history logs for style ${tx.carpetType}, tracking previous corrections and edited fields.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                        if (logs.isEmpty()) {
+                            Text(
+                                text = "No visual timeline history logs found.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        } else {
+                            logs.forEachIndexed { index, log ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Surface(
+                                            shape = androidx.compose.foundation.shape.CircleShape,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(8.dp)
+                                        ) {}
+                                        if (index < logs.size - 1) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(2.dp)
+                                                    .height(36.dp)
+                                                    .background(MaterialTheme.colorScheme.outlineVariant)
+                                            )
+                                        }
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = log,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { historyTransactionTarget = null }) {
+                        Text("Dismiss")
+                    }
+                }
+            )
         }
     }
 }
@@ -2004,7 +2451,9 @@ fun TxLedgerScreen(
 @Composable
 fun LedgerTxRowCard(
     tx: TransactionEntity,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
+    onShowHistory: () -> Unit
 ) {
     val isInflow = tx.direction == "INCOMING"
     val flowColor = if (isInflow) Color(0xFF2E7D32) else Color(0xFFC62828)
@@ -2047,12 +2496,45 @@ fun LedgerTxRowCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = tx.carpetType,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = tx.carpetType,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (tx.isEdited) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier
+                                    .clickable { onShowHistory() }
+                                    .testTag("edited_indicator_${tx.id}")
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Show Edit History",
+                                        modifier = Modifier.size(10.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "Edited 📝",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
                     Text(
                         text = "${if (isInflow) "+" else "-"}${tx.quantity} Rolls",
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
@@ -2117,6 +2599,21 @@ fun LedgerTxRowCard(
             }
 
             Spacer(modifier = Modifier.width(6.dp))
+
+            // Edit Record button
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier.size(32.dp).testTag("edit_tx_btn_${tx.id}")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Edit Record",
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
 
             // Delete Record button
             IconButton(

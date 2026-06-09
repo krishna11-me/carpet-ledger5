@@ -6,9 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import android.net.Uri
 import com.example.data.*
-import com.example.util.PdfExporter
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -244,15 +242,6 @@ class CarpetViewModel(application: Application) : AndroidViewModel(application) 
     fun deleteTransaction(transaction: TransactionEntity) {
         viewModelScope.launch {
             try {
-                // If we delete an INCOMING transaction, it reduces the total stock.
-                // We must ensure the stock doesn't go below 0 after deletion.
-                if (transaction.direction == "INCOMING") {
-                    val currentStock = stockMap.value[transaction.carpetType]?.get(transaction.size) ?: 0
-                    if (currentStock - transaction.quantity < 0) {
-                        showMessage("Cannot delete: This would cause negative stock balance.", true)
-                        return@launch
-                    }
-                }
                 repository.delete(transaction)
                 showMessage("Transaction record deleted successfully.", false)
             } catch (e: Exception) {
@@ -316,12 +305,6 @@ class CarpetViewModel(application: Application) : AndroidViewModel(application) 
     fun deleteCustomCarpetType(customType: CustomCarpetTypeEntity) {
         viewModelScope.launch {
             try {
-                // Check if any transaction exists for this type
-                val txCount = allTransactions.value.count { it.carpetType.uppercase() == customType.name.uppercase() }
-                if (txCount > 0) {
-                    showMessage("Cannot delete: Used in $txCount transaction(s).", true)
-                    return@launch
-                }
                 repository.deleteCustomType(customType)
                 showMessage("Custom style \"${customType.name}\" deleted.", false)
             } catch (e: Exception) {
@@ -360,12 +343,6 @@ class CarpetViewModel(application: Application) : AndroidViewModel(application) 
     fun deleteCustomCarpetSize(customSize: CustomCarpetSizeEntity) {
         viewModelScope.launch {
             try {
-                // Check if any transaction exists for this size
-                val txCount = allTransactions.value.count { it.size.uppercase() == customSize.sizeValue.uppercase() }
-                if (txCount > 0) {
-                    showMessage("Cannot delete: Used in $txCount transaction(s).", true)
-                    return@launch
-                }
                 repository.deleteCustomSize(customSize)
                 showMessage("Custom size \"${customSize.sizeValue}\" deleted.", false)
             } catch (e: Exception) {
@@ -495,6 +472,8 @@ class CarpetViewModel(application: Application) : AndroidViewModel(application) 
             obj.put("challanNumber", tx.challanNumber)
             obj.put("remarks", tx.remarks)
             obj.put("rollLengths", tx.rollLengths)
+            obj.put("isEdited", tx.isEdited)
+            obj.put("editHistoryJson", tx.editHistoryJson)
             txsArray.put(obj)
         }
         root.put("carpet_transactions", txsArray)
@@ -570,7 +549,9 @@ class CarpetViewModel(application: Application) : AndroidViewModel(application) 
                             quantity = obj.getInt("quantity"),
                             challanNumber = obj.optString("challanNumber", ""),
                             remarks = obj.optString("remarks", ""),
-                            rollLengths = obj.optString("rollLengths", "")
+                            rollLengths = obj.optString("rollLengths", ""),
+                            isEdited = obj.optBoolean("isEdited", false),
+                            editHistoryJson = obj.optString("editHistoryJson", "")
                         ))
                     }
                 }
@@ -701,14 +682,79 @@ class CarpetViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun exportLedgerToPdf(uri: Uri, context: android.content.Context, filteredTransactions: List<TransactionEntity>) {
+    fun updateTransaction(updatedTx: TransactionEntity, originalTx: TransactionEntity, onSuccess: () -> Unit) {
+        val qty = updatedTx.quantity
+        if (qty <= 0) {
+            showMessage("Please enter a valid quantity greater than 0.", true)
+            return
+        }
+
+        if (updatedTx.direction == "OUTGOING") {
+            val currentStockOfThisType = stockMap.value[updatedTx.carpetType]?.get(updatedTx.size) ?: 0
+            var availableBase = currentStockOfThisType
+            if (originalTx.direction == "OUTGOING" && originalTx.carpetType == updatedTx.carpetType && originalTx.size == updatedTx.size) {
+                availableBase += originalTx.quantity
+            } else if (originalTx.direction == "INCOMING" && originalTx.carpetType == updatedTx.carpetType && originalTx.size == updatedTx.size) {
+                availableBase -= originalTx.quantity
+            }
+            if (qty > availableBase) {
+                showMessage("Insufficient stock! Available of ${updatedTx.carpetType} size ${updatedTx.size}: $availableBase.", true)
+                return
+            }
+        }
+
         viewModelScope.launch {
-            PdfExporter.exportTransactionsToPdf(context, uri, filteredTransactions) { success, error ->
-                if (success) {
-                    showMessage("PDF Ledger exported successfully!", false)
+            try {
+                val hasChanged = updatedTx.transactionDate != originalTx.transactionDate ||
+                        updatedTx.carpetType != originalTx.carpetType ||
+                        updatedTx.size != originalTx.size ||
+                        updatedTx.direction != originalTx.direction ||
+                        updatedTx.quantity != originalTx.quantity ||
+                        updatedTx.challanNumber != originalTx.challanNumber ||
+                        updatedTx.remarks != originalTx.remarks ||
+                        updatedTx.rollLengths != originalTx.rollLengths
+
+                if (hasChanged) {
+                    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                    val timestampStr = sdf.format(java.util.Date())
+                    
+                    val changeList = mutableListOf<String>()
+                    if (originalTx.transactionDate != updatedTx.transactionDate) changeList.add("Date: ${originalTx.transactionDate} ➔ ${updatedTx.transactionDate}")
+                    if (originalTx.carpetType != updatedTx.carpetType) changeList.add("Style: ${originalTx.carpetType} ➔ ${updatedTx.carpetType}")
+                    if (originalTx.size != updatedTx.size) changeList.add("Size: ${originalTx.size} ➔ ${updatedTx.size}")
+                    if (originalTx.direction != updatedTx.direction) changeList.add("Flow: ${originalTx.direction} ➔ ${updatedTx.direction}")
+                    if (originalTx.quantity != updatedTx.quantity) changeList.add("Qty: ${originalTx.quantity} ➔ ${updatedTx.quantity}")
+                    if (originalTx.challanNumber != updatedTx.challanNumber) changeList.add("Challan: '${originalTx.challanNumber}' ➔ '${updatedTx.challanNumber}'")
+                    if (originalTx.remarks != updatedTx.remarks) changeList.add("Note: '${originalTx.remarks}' ➔ '${updatedTx.remarks}'")
+                    if (originalTx.rollLengths != updatedTx.rollLengths) changeList.add("Rolls: '${originalTx.rollLengths}' ➔ '${updatedTx.rollLengths}'")
+
+                    val detail = "Edited on $timestampStr: " + changeList.joinToString(", ")
+                    
+                    val existingHistory = try {
+                        val arr = org.json.JSONArray(originalTx.editHistoryJson.ifEmpty { "[]" })
+                        val list = mutableListOf<String>()
+                        for (j in 0 until arr.length()) {
+                            list.add(arr.getString(j))
+                        }
+                        list
+                    } catch (e: Exception) {
+                        mutableListOf<String>()
+                    }
+                    
+                    existingHistory.add(detail)
+                    
+                    val finalTx = updatedTx.copy(
+                        isEdited = true,
+                        editHistoryJson = org.json.JSONArray(existingHistory).toString()
+                    )
+                    repository.insert(finalTx)
+                    showMessage("Transaction updated successfully!", false)
                 } else {
-                    showMessage("Failed to export PDF: $error", true)
+                    repository.insert(updatedTx)
                 }
+                onSuccess()
+            } catch (e: Exception) {
+                showMessage("Error updating transaction: ${e.message}", true)
             }
         }
     }

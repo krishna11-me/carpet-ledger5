@@ -14,5 +14,7 @@ data class TransactionEntity(
     val quantity: Int,           // quantity of rolls/pieces
     val challanNumber: String = "", // bill or gatepass reference
     val remarks: String = "",     // additional details (e.g. party name)
-    val rollLengths: String = ""   // comma-separated roll lengths, e.g. "1.5,6,6,9"
+    val rollLengths: String = "",   // comma-separated roll lengths, e.g. "1.5,6,6,9"
+    val isEdited: Boolean = false,
+    val editHistoryJson: String = ""
 )
